@@ -59,7 +59,7 @@ class ActivityEntry:
             self._payload[const.NAME] = activity_name
             self._payload[const.RESOURCE_PATH] = resource_path
             self._payload[const.DESCRIPTION] = description
-            self._payload[const.PROGRESS] = 0
+            self._payload[const.PCT_PROGRESS] = 0
             self._payload[const.STATUS] = const.NEW
             self._payload[const.STATUS_DESC] = f"{const.CREATED_DESC}: {activity_name}"
             self._payload[const.CREATED_TIME] = int(time.time())
@@ -80,7 +80,7 @@ class ActivityEntry:
         self._payload[attr] = val
 
     def set_status(self, progress: int, status: str, status_description: str):
-        self._payload[const.PROGRESS] = progress
+        self._payload[const.PCT_PROGRESS] = progress
         self._payload[const.STATUS] = status
         self._payload[const.STATUS_DESC] = status_description
         self._payload[const.UPDATED_TIME] = int(time.time())
@@ -89,7 +89,7 @@ class ActivityEntry:
         self._payload[const.UPDATED_TIME] = int(time.time())
 
     def finish(self, status: str = ""):
-        self._payload[const.PROGRESS] = 100
+        self._payload[const.PCT_PROGRESS] = 100
         self._payload[const.UPDATED_TIME] = int(time.time())
         self._payload[const.STATUS] = status
 
