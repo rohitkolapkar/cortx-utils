@@ -20,7 +20,6 @@ import time
 import json
 import re
 import uuid
-from enum import Enum
 
 from cortx.template import Singleton
 from cortx.utils.kv_store.kv_store import KvStoreFactory
@@ -28,17 +27,6 @@ from cortx.utils.kv_store import KvPayload
 from cortx.utils.activity_tracker.error import ActivityError
 from cortx.utils.activity_tracker import const
 
-class Status(Enum):
-
-    NEW = const.NEW
-    IN_PROGRESS = const.IN_PROGRESS
-    COMPLETED = const.COMPLETED
-    SUSPENDED = const.SUSPENDED
-
-    @staticmethod
-    def list() -> list:
-        """Returns list of status values."""
-        return list(map(lambda c: c.value, Status))
 
 class ActivityEntry:
     """Represents System Activity"""
@@ -61,7 +49,7 @@ class ActivityEntry:
             self._payload[const.DESCRIPTION] = description
             self._payload[const.PCT_PROGRESS] = 0
             self._payload[const.STATUS] = const.NEW
-            self._payload[const.STATUS_DESC] = f"{const.CREATED_DESC}: {activity_name}"
+            self._payload[const.STATUS_DESC] = const.CREATED_DESC
             self._payload[const.CREATED_TIME] = int(time.time())
         else:
             self._id = activity_id
@@ -76,22 +64,24 @@ class ActivityEntry:
     def payload(self) -> dict:
         return self._payload
 
-    def set_attr(self, attr: str, val: str):
-        self._payload[attr] = val
-
-    def set_status(self, progress: int, status: str, status_description: str):
-        self._payload[const.PCT_PROGRESS] = progress
-        self._payload[const.STATUS] = status
-        self._payload[const.STATUS_DESC] = status_description
+    def update(self, pct_progress: int, status_desc: str = const.IN_PROGRESS_DESC):
+        if pct_progress < 0 or pct_progress > 99:
+            raise ActivityError(errno.EINVAL, "update(): Invalid pct_progress: %s", pct_progress)
+        self._payload[const.PCT_PROGRESS] = pct_progress
+        self._payload[const.STATUS] = const.IN_PROGRESS
+        self._payload[const.STATUS_DESC] = status_desc
         self._payload[const.UPDATED_TIME] = int(time.time())
 
-    def start(self):
-        self._payload[const.UPDATED_TIME] = int(time.time())
-
-    def finish(self, status: str = ""):
+    def finish(self, status_desc: str = const.COMPLETED_DESC):
         self._payload[const.PCT_PROGRESS] = 100
+        self._payload[const.STATUS] = const.COMPLETED
+        self._payload[const.STATUS_DESC] = status_desc
         self._payload[const.UPDATED_TIME] = int(time.time())
-        self._payload[const.STATUS] = status
+
+    def suspend(self, status_desc: str = const.SUSPENDED_DESC):
+        self._payload[const.STATUS] = const.SUSPENDED
+        self._payload[const.STATUS_DESC] = status_desc
+        self._payload[const.UPDATED_TIME] = int(time.time())
 
 
 class Activity(metaclass=Singleton):
@@ -108,7 +98,7 @@ class Activity(metaclass=Singleton):
         """
         Creates an activity.
 
-        Sets progress to 0 and status to NEW.
+        Sets pct_progress to 0 and status to NEW.
         Records the current time as the created time.
         """
         activity = ActivityEntry(name=name, resource_path=resource_path,
@@ -117,11 +107,18 @@ class Activity(metaclass=Singleton):
         return activity
 
     @staticmethod
-    def start(activity: ActivityEntry):
-        """Start the activity. Records the current time as the start time."""
+    def update(activity: ActivityEntry, pct_progress: int, status_desc: str):
+        """
+        Updates the pct_progress and status_description.
+        Sets the status to IN_PROGRESS.
+        """
         if not isinstance(activity, ActivityEntry):
-            raise ActivityError(errno.EINVAL, "start(): Invalid arg %s", activity)
-        activity.start()
+            raise ActivityError(errno.EINVAL, "update(): Invalid arg %s", activity)
+        activity_data = json.loads(activity.payload.json)
+        if pct_progress < activity_data.get(const.PCT_PROGRESS):
+            raise ActivityError(errno.EINVAL, "update(): pct_progress: %s is \
+                less than the previous pct_progress", pct_progress)
+        activity.update(pct_progress, status_desc)
         Activity._kv_store.set([activity.id], [activity.payload.json])
 
     @staticmethod
@@ -133,18 +130,11 @@ class Activity(metaclass=Singleton):
         Activity._kv_store.set([activity.id], [activity.payload.json])
 
     @staticmethod
-    def update(activity: ActivityEntry, progress: int, status: str, status_description: str):
-        """
-        Updates the activity progress, status and status_description.
-        Records the current time as the updated time.
-        """
+    def suspend(activity: ActivityEntry, status_desc: str):
+        """Suspends the activity."""
         if not isinstance(activity, ActivityEntry):
-            raise ActivityError(errno.EINVAL, "update(): Invalid arg %s", activity)
-        try:
-            status = Status(status).value
-        except ValueError:
-            raise ActivityError(errno.EINVAL, "update(): invalid status value %s", status)
-        activity.set_status(progress, status, status_description)
+            raise ActivityError(errno.EINVAL, "suspend(): Invalid arg %s", activity)
+        activity.suspend(status_desc)
         Activity._kv_store.set([activity.id], [activity.payload.json])
 
     @staticmethod
