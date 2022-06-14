@@ -51,7 +51,7 @@ class TestActivityStore(unittest.TestCase):
     def test_activity_store_create_activity(self):
         """Test activity creation."""
         Activity.init(sample_file_url)
-        activity = Activity.create("Activity","Activities", "Activity Status")
+        activity = Activity.create("Activity", "Activities", "Activity Status")
         rc = 0
         try:
             activity_id = activity.id
@@ -60,7 +60,7 @@ class TestActivityStore(unittest.TestCase):
             raise ActivityError(errno.EINVAL, "Error: While fetching Activity ID")
         self.assertEqual(rc, 0)
         with self.assertRaises(ActivityError):
-            Activity.create("Activity","Activities", None)
+            Activity.create("Activity", "Activities", None)
         try:
             activities = load_data(sample_file)
             activity_data = json.loads(activities.get(activity_id))

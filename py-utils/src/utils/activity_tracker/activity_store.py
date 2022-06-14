@@ -33,7 +33,6 @@ class Status(Enum):
     NEW = const.NEW
     IN_PROGRESS = const.IN_PROGRESS
     COMPLETED = const.COMPLETED
-    FAILED = const.FAILED
     SUSPENDED = const.SUSPENDED
 
     @staticmethod
