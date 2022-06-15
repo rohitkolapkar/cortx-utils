@@ -111,27 +111,36 @@ class Activity(metaclass=Singleton):
         """
         Updates the pct_progress and status_description.
         Sets the status to IN_PROGRESS.
+        Records current time as the updated_time.
         """
         if not isinstance(activity, ActivityEntry):
             raise ActivityError(errno.EINVAL, "update(): Invalid arg %s", activity)
         activity_data = json.loads(activity.payload.json)
         if pct_progress < activity_data.get(const.PCT_PROGRESS):
-            raise ActivityError(errno.EINVAL, "update(): pct_progress: %s is \
-                less than the previous pct_progress", pct_progress)
+            raise ActivityError(errno.EINVAL, "update(): pct_progress: %s\
+                can not be less than the previously updated value", pct_progress)
         activity.update(pct_progress, status_desc)
         Activity._kv_store.set([activity.id], [activity.payload.json])
 
     @staticmethod
-    def finish(activity: ActivityEntry):
-        """Completes a activity. Records current time as the completion time."""
+    def finish(activity: ActivityEntry, status_desc: str):
+        """
+        Completes the activity and updates the status_description.
+        Sets the status to COMPLETE and pct_progress to 100.
+        Records current time as the updated_time.
+        """
         if not isinstance(activity, ActivityEntry):
             raise ActivityError(errno.EINVAL, "finish(): Invalid arg %s", activity)
-        activity.finish()
+        activity.finish(status_desc)
         Activity._kv_store.set([activity.id], [activity.payload.json])
 
     @staticmethod
     def suspend(activity: ActivityEntry, status_desc: str):
-        """Suspends the activity."""
+        """
+        Suspends the activity and updates the status_description.
+        Sets the status to SUSPEND.
+        Records current time as the updated_time.
+        """
         if not isinstance(activity, ActivityEntry):
             raise ActivityError(errno.EINVAL, "suspend(): Invalid arg %s", activity)
         activity.suspend(status_desc)
